@@ -31,6 +31,7 @@ private:
     Triple eye;
 public:
     Color trace(const Ray &ray);
+    Color trace(const Ray &ray, int depth);
     void render(Image &img);
     void addObject(Object *o);
     void addLight(Light *l);

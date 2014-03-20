@@ -53,6 +53,7 @@ Material* Raytracer::parseMaterial(const YAML::Node& node)
     node["n"] >> m->n;
     node["reflect"] >> m->reflect;
     node["reflect"] >> m->refract;
+    node["eta"] >> m->eta;
     return m;
 }
 
@@ -69,6 +70,12 @@ Object* Raytracer::parseObject(const YAML::Node& node)
         node["radius"] >> r;
         Sphere *sphere = new Sphere(pos,r);		
         returnObject = sphere;
+    } else if (objectType == "triangle"){
+        Point p1, p2, p3;
+        node["p1"]>>p1;
+        node["p2"]>>p2;
+        node["p3"]>>p3;
+
     }
 
     if (returnObject) {

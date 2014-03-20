@@ -17,8 +17,9 @@
 #include "scene.h"
 #include "material.h"
 #define NELEMS(x) (sizeof(x) / sizeof(x[0]))
+#define AIR 1.000293
 
-Color Scene::trace(const Ray &ray)
+Color Scene::trace(const Ray &ray, int depth)
 {
     // Find hit object and distance
     Hit min_hit(std::numeric_limits<double>::infinity(),Vector());
@@ -38,7 +39,7 @@ Color Scene::trace(const Ray &ray)
     Point hit = ray.at(min_hit.t);                 //the hit point
     Vector N = min_hit.N;                          //the normal at hit point
     Vector V = -ray.D;                             //the view vector
-
+    N.normalize();
 
     /****************************************************
     * This is where you should insert the color
@@ -64,12 +65,17 @@ Color Scene::trace(const Ray &ray)
         // isolate light and calculate vector to Light
         Light *light = lights[i];
         Vector L = light->position-hit;
+        Vector R = -L+2*(L.dot(N))*N;
+        R.normalize(); // Normalize R
         L.normalize(); // Normalize L
 
         // store intensities for materials
         double kd = material->kd;
         double ka = material->ka;
         double ks = material->ks;
+        double r = material->reflect;
+        double rfr = material->refract;
+        double eta = material->eta;
 
         // define material and light colors
         Color Cl = light->color;
@@ -94,25 +100,80 @@ Color Scene::trace(const Ray &ray)
         shadow = (!collide ? false:true);
 
         if (shadow){
-            Color Ia = Cr*ka; // placeholder for soft shadow
-            I+=Ia;
+            Color Ia = Cl; // placeholder for soft shadow
+            I+=Ia*ka;
         } else {
             // diffuse light
             Color Id = Cr * max(0.0,L.dot(N));
             
             // specular Light calculation
-            Vector R = -L+2*(L.dot(N))*N;
+            
             double n = material->n;
             Color Is = Cl*pow(max(0.0,V.dot(R)),n);
             
             // Calculate ambient light
-            Color Ia = Cr;
+            Color Ia = Cl*Cr;
+
+            // Calculate reflection of rays
+            if (depth<5 && r>0){
+                Hit refHit (std::numeric_limits<double>::infinity(), Vector());
+                Object *refObj = NULL;
+                Vector refDir = ray.D-2*(ray.D.dot(N))*N;
+                Ray refRay(jiggle, refDir);
+                for (int j = 0; j<objects.size(); j++){
+                    Hit intersect = objects[j]->intersect(refRay);
+                    if (intersect.t<refHit.t){
+                        refHit = intersect;
+                        refObj = objects[j];
+                    }
+                }
+
+                if (refObj && refHit.t>0){
+                    Is = Is+trace(refRay,depth+1)*r;
+                }
+            }
+
+
+            // Calculate Refraction
+            if (depth<5 && rfr>0.0){
+                // define variables
+                double eta1;
+                double eta2;
+                Vector t;
+
+                // determine if ray is entering or leaving
+                if(L.dot(N)>0){
+                    eta1=AIR;
+                    eta2=material->eta;
+                } else if (L.dot(N)<0){
+                    eta1=material->eta;
+                    eta2=AIR;
+                } else break;
+
+                // calculate t direction vector
+                double root = 1-pow(eta1,2)*(1-pow(ray.D.dot(N),2))/(pow(eta2,2));
+                if (root<0) break;
+                t = (eta1*(ray.D-N*(ray.D.dot(N)))/eta2)-N*(sqrt(root));
+                t.normalize();
+
+                Ray refractRay(jiggle, t);
+                Is = Is + trace(refractRay, depth+1)*rfr;
+            }
 
             // Add the 3 light intesities to color
             I += kd*Id + ks*Is + ka*Ia;
         }
+        if(I.length()<0){
+            return Color(0.0,0.0,0.0);
+        }
+        
     }
-    return I;
+    return I/lights.size();
+}
+
+
+Color Scene::trace(const Ray &ray){
+    return trace(ray, 0);
 }
 
 void Scene::render(Image &img)

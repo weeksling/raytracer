@@ -1,4 +1,5 @@
 #/!/bin/bash
+make clean
 make
 ./raytracer scene01.yaml
 ./raytracer scene02.yaml
