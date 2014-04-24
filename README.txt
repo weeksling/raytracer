@@ -1,3 +1,8 @@
+This is a project for Intro to Computer Graphics course at UOIT.
+
+It extends the framework described below, implementing phong shading, shadows, reflections, and refractions.
+
+
 Raytracer C++ framework for "Introduction to Computer Graphics"
 ===============================================================
 
